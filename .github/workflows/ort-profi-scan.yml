@@ -1,0 +1,66 @@
+name: ORT & ScanCode Profi-Scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_url:
+        description: 'GitHub-Link zum fremden Projekt (z. B. https://github.com)'
+        required: true
+        type: string
+
+jobs:
+  ort-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fremdes Projekt herunterladen
+        run: git clone --depth 1 "${{ github.event.inputs.repo_url }}" target-project
+
+      - name: Regelwerk für Evaluator automatisch erstellen
+        run: |
+          cat << 'EOF' > rules.kts
+          val copyleftRule = rule("NO_GPL_3_ONLY") {
+              require {
+                  +isSpdxLicense("GPL-3.0-only")
+              }
+              warning(
+                  message = "Strenge GPL-3.0-only Lizenz gefunden. Bitte rechtliche Verträglichkeit prüfen!",
+                  howToFix = "Prüfe, ob die Bibliothek ersetzt werden kann oder ob die GPL-Bedingungen erfüllt werden können."
+              )
+          }
+
+          val securityRule = rule("NO_VULNERABILITIES") {
+              require {
+                  +hasVulnerability()
+              }
+              warning(
+                  message = "Bekannte Sicherheitslücke (CVE) in diesem Paket gefunden.",
+                  howToFix = "Aktualisiere das betroffene Paket auf eine sichere Version."
+              )
+          }
+
+          ruleSet(ortResult, licenseInfoResolver, resolutionProvider) {
+              packageRule("LICENSES") {
+                  apply(copyleftRule)
+              }
+              vulnerabilityRule("SECURITY") {
+                  apply(securityRule)
+              }
+          }
+          EOF
+
+      - name: ORT Full-Stack (Analyzer, ScanCode, Advisor, Evaluator & Report)
+        uses: oss-review-toolkit/ort-ci-github-action@v1
+        with:
+          project-dir: target-project
+          commands: analyze,scan,advise,evaluate,report
+          scanner-options: "--scanner ScanCode"
+          advisor-options: "--advisors OSV"
+          evaluator-options: "--rules-file ${{ github.workspace }}/rules.kts"
+          report-formats: "WebApp,CycloneDx"
+
+      - name: Fertige Berichte zum Download bereitstellen
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ort-profi-ergebnisse
+          path: ort-results/reporter/
