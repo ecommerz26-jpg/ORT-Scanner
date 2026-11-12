@@ -13,13 +13,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - name: HTTPS für Git-Downloads aktivieren
-        run: git config --global url.https://github.com ssh://git@github.com/
+      - name: Link bereinigen
+        id: clean
+        run: |
+          CLEAN_URL=$(echo "${{ github.event.inputs.repo_url }}" | xargs)
+          echo "url=$CLEAN_URL" >> $GITHUB_OUTPUT
 
       - name: ORT Full-Stack (mit Caching, ScanCode, Advisor & Evaluator)
         uses: oss-review-toolkit/ort-ci-github-action@main
         with:
-          vcs-url: '${{ github.event.inputs.repo_url }}'
+          vcs-url: '${{ steps.clean.outputs.url }}'
           allow-dynamic-versions: 'true'
           ort-config-repository: 'https://github.com'
           run: 'cache-dependencies,cache-scan-results,analyzer,scanner,advisor,evaluator,reporter,upload-results'
