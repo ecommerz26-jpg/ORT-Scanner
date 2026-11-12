@@ -4,24 +4,23 @@ on:
   workflow_dispatch:
     inputs:
       repo_url:
-        description: 'GitHub-Link zum fremden Projekt (z. B. https://github.com)'
+        description: 'Vollständiger GitHub-Link (z. B. https://github.com)'
         required: true
         type: string
 
 jobs:
   ort-scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - name: HTTPS für Git-Downloads aktivieren
-        run: git config --global url.https://github.com ssh://git@://github.com
+        run: git config --global url.https://github.com ssh://git@github.com/
 
-      - name: ORT Full-Stack (Schnell & Gründlich mit Cache)
+      - name: ORT Full-Stack (mit Caching, ScanCode, Advisor & Evaluator)
         uses: oss-review-toolkit/ort-ci-github-action@main
         with:
           vcs-url: '${{ github.event.inputs.repo_url }}'
           allow-dynamic-versions: 'true'
-          ort-config-repository: 'https://://github.comoss-review-toolkit/ort-config'
-          run: 'analyzer,scanner,advisor,evaluator,reporter,upload-results'
-          scanner-type: 'local'
-          cache: 'true'
+          ort-config-repository: 'https://github.com'
+          run: 'cache-dependencies,cache-scan-results,analyzer,scanner,advisor,evaluator,reporter,upload-results'
+          report-formats: 'WebApp,CycloneDx'
