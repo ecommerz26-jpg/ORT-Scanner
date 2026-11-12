@@ -12,12 +12,13 @@ jobs:
   ort-scan:
     runs-on: ubuntu-latest
     steps:
-      - name: Fremdes Projekt herunterladen
-        run: git clone --depth 1 "${{ github.event.inputs.repo_url }}" target-project
+      - name: HTTPS für Git-Downloads aktivieren
+        run: git config --global url.https://github.com ssh://git@github.com/
 
-      - name: Regelwerk für Evaluator automatisch erstellen
+      - name: Regelwerk für Evaluator anlegen
         run: |
-          cat << 'EOF' > rules.kts
+          mkdir -p ~/.ort/config
+          cat << 'EOF' > ~/.ort/config/evaluator.rules.kts
           val copyleftRule = rule("NO_GPL_3_ONLY") {
               require {
                   +isSpdxLicense("GPL-3.0-only")
@@ -49,18 +50,9 @@ jobs:
           EOF
 
       - name: ORT Full-Stack (Analyzer, ScanCode, Advisor, Evaluator & Report)
-        uses: oss-review-toolkit/ort-ci-github-action@v1
+        uses: oss-review-toolkit/ort-ci-github-action@main
         with:
-          project-dir: target-project
-          commands: analyze,scan,advise,evaluate,report
-          scanner-options: "--scanner ScanCode"
-          advisor-options: "--advisors OSV"
-          evaluator-options: "--rules-file ${{ github.workspace }}/rules.kts"
-          report-formats: "WebApp,CycloneDx"
-
-      - name: Fertige Berichte zum Download bereitstellen
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ort-profi-ergebnisse
-          path: ort-results/reporter/
+          vcs-url: '${{ github.event.inputs.repo_url }}'
+          allow-dynamic-versions: 'true'
+          run: 'analyzer,scanner,advisor,evaluator,reporter,upload-results'
+          report-formats: 'WebApp,CycloneDx'
