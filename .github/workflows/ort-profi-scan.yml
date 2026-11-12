@@ -11,51 +11,15 @@ on:
 jobs:
   ort-scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: HTTPS für Git-Downloads aktivieren
-        run: git config --global url.https://github.com ssh://git@://github.com
-
-      - name: Regelwerk für Evaluator anlegen
-        run: |
-          mkdir -p ~/.ort/config
-          cat << 'EOF' > ~/.ort/config/evaluator.rules.kts
-          val copyleftRule = rule("NO_GPL_3_ONLY") {
-              require {
-                  +isSpdxLicense("GPL-3.0-only")
-              }
-              warning(
-                  message = "Strenge GPL-3.0-only Lizenz gefunden. Bitte rechtliche Verträglichkeit prüfen!",
-                  howToFix = "Prüfe, ob die Bibliothek ersetzt werden kann oder ob die GPL-Bedingungen erfüllt werden können."
-              )
-          }
-
-          val securityRule = rule("NO_VULNERABILITIES") {
-              require {
-                  +hasVulnerability()
-              }
-              warning(
-                  message = "Bekannte Sicherheitslücke (CVE) in diesem Paket gefunden.",
-                  howToFix = "Aktualisiere das betroffene Paket auf eine sichere Version."
-              )
-          }
-
-          ruleSet(ortResult, licenseInfoResolver, resolutionProvider) {
-              packageRule("LICENSES") {
-                  apply(copyleftRule)
-              }
-              vulnerabilityRule("SECURITY") {
-                  apply(securityRule)
-              }
-          }
-          EOF
+        run: git config --global url.https://github.com/.insteadOf ssh://git@github.com/
 
       - name: ORT Full-Stack (Analyzer, ScanCode, Advisor, Evaluator & Report)
         uses: oss-review-toolkit/ort-ci-github-action@main
-        env:
-          ORT_OPTS: "-Dort.scanner.scanners.ScanCode.options.commandLine=--copyright,--license,--info,--strip-root,--timeout,300,--processes,4"
         with:
           vcs-url: '${{ github.event.inputs.repo_url }}'
           allow-dynamic-versions: 'true'
+          ort-config-repository: 'https://github.com/oss-review-toolkit/ort-config'
           run: 'analyzer,scanner,advisor,evaluator,reporter,upload-results'
-          report-formats: 'WebApp,CycloneDx'
