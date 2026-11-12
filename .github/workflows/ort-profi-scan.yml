@@ -11,9 +11,10 @@ on:
 jobs:
   ort-scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: HTTPS für Git-Downloads aktivieren
-        run: git config --global url.https://github.com ssh://git@github.com/
+        run: git config --global url.https://github.com ssh://git@://github.com
 
       - name: Regelwerk für Evaluator anlegen
         run: |
@@ -51,6 +52,8 @@ jobs:
 
       - name: ORT Full-Stack (Analyzer, ScanCode, Advisor, Evaluator & Report)
         uses: oss-review-toolkit/ort-ci-github-action@main
+        env:
+          ORT_OPTS: "-Dort.scanner.scanners.ScanCode.options.commandLine=--copyright,--license,--info,--strip-root,--timeout,300,--processes,4"
         with:
           vcs-url: '${{ github.event.inputs.repo_url }}'
           allow-dynamic-versions: 'true'
