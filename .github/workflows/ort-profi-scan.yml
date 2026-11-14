@@ -9,31 +9,31 @@ on:
         type: string
 
 jobs:
-  universal-scan:
+  ort-scan:
     runs-on: ubuntu-latest
     timeout-minutes: 360
 
     steps:
-      - name: Link bereinigen
-        id: clean
+      - name: Repo-Name aus Link extrahieren
+        id: parse
         run: |
-          CLEAN_URL=$(echo "${{ github.event.inputs.repo_url }}" | xargs)
-          echo "url=$CLEAN_URL" >> $GITHUB_OUTPUT
+          CLEAN_REPO=$(echo "${{ github.event.inputs.repo_url }}" | sed -E 's|https?://github.com/||; s|\.git$||; s|/$||' | xargs)
+          echo "repo=$CLEAN_REPO" >> $GITHUB_OUTPUT
 
-      - name: Universelle Vollanalyse (Struktur, Abhängigkeiten, Lizenzen & Security)
+      - name: HTTPS statt SSH für Git erzwingen
+        run: git config --global url.https://github.com/.insteadOf ssh://git@github.com/
+
+      - name: Ziel-Repository herunterladen
+        uses: actions/checkout@v5
+        with:
+          repository: '${{ steps.parse.outputs.repo }}'
+
+      - name: ORT Vollanalyse (Analyzer, ScanCode, OSV & WebApp)
         uses: oss-review-toolkit/ort-ci-github-action@main
         with:
-          vcs-url: '${{ steps.clean.outputs.url }}'
           allow-dynamic-versions: 'true'
-          # Korrekter Link zum offiziellen ORT-Regelwerk
-          ort-config-repository: 'https://github.com'
-          # Komplett-Pipeline mit Caching
           run: 'cache-dependencies,cache-scan-results,analyzer,scanner,advisor,evaluator,reporter,upload-results'
-          # ScanCode für Ordnerstruktur & Lizenzen
           ort-cli-scan-args: '--scanners=ScanCode'
-          # Korrekter Parameter für die OSV-Sicherheitsdatenbank
           advisors: 'OSV'
-          # Ergebnisse als interaktive WebApp und SBOM ausgeben
           report-formats: 'WebApp,CycloneDx'
-          # Stellt sicher, dass der Report am Ende IMMER erstellt wird
           fail-on: 'none'
