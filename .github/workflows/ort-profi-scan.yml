@@ -11,7 +11,8 @@ on:
 jobs:
   ort-scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
+
     steps:
       - name: Link bereinigen
         id: clean
@@ -19,11 +20,19 @@ jobs:
           CLEAN_URL=$(echo "${{ github.event.inputs.repo_url }}" | xargs)
           echo "url=$CLEAN_URL" >> $GITHUB_OUTPUT
 
-      - name: ORT Full-Stack (mit Caching, ScanCode, Advisor & Evaluator)
+      - name: ORT Full-Stack Analyse (Analyzer, ScanCode, OSV Advisor & Evaluator)
         uses: oss-review-toolkit/ort-ci-github-action@main
         with:
           vcs-url: '${{ steps.clean.outputs.url }}'
           allow-dynamic-versions: 'true'
+          # Offizielles ORT-Regelwerk für den Evaluator
           ort-config-repository: 'https://github.com'
+          # Komplette Pipeline inklusive Caching
           run: 'cache-dependencies,cache-scan-results,analyzer,scanner,advisor,evaluator,reporter,upload-results'
+          # ScanCode als Scanner + OSV für Sicherheitslücken festlegen
+          ort-cli-scan-args: '--scanners=ScanCode'
+          ort-cli-advisor-args: '--advisors=OSV'
+          # Ergebnisse als interaktive HTML-WebApp und SBOM ausgeben
           report-formats: 'WebApp,CycloneDx'
+          # Bricht den Workflow erst bei echten Fehlern ab, nicht bei bloßen Warnungen
+          fail-on: 'severe-rule-violation,severe-issue'
