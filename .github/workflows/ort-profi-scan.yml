@@ -1,4 +1,4 @@
-name: Universeller Profi-Scanner (ORT + ScanCode + OSV)
+name: Universal Profi-Scanner (Syft + Trivy + ScanCode)
 
 on:
   workflow_dispatch:
@@ -9,31 +9,51 @@ on:
         type: string
 
 jobs:
-  ort-scan:
+  full-audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 120
 
     steps:
-      - name: Repo-Name aus Link extrahieren
+      - name: 1. Repository-Namen aus URL extrahieren
         id: parse
         run: |
-          CLEAN_REPO=$(echo "${{ github.event.inputs.repo_url }}" | sed -E 's|https?://github.com/||; s|\.git$||; s|/$||' | xargs)
+          CLEAN_REPO=$(echo "${{ github.event.inputs.repo_url }}" | sed -E 's|https?://://github.com||; s|\.git$||; s|/$||' | xargs)
           echo "repo=$CLEAN_REPO" >> $GITHUB_OUTPUT
 
-      - name: HTTPS statt SSH für Git erzwingen
-        run: git config --global url.https://github.com/.insteadOf ssh://git@github.com/
-
-      - name: Ziel-Repository herunterladen
-        uses: actions/checkout@v5
+      - name: 2. Ziel-Repository herunterladen
+        uses: actions/checkout@v4
         with:
           repository: '${{ steps.parse.outputs.repo }}'
+          path: 'target-repo'
 
-      - name: ORT Vollanalyse (Analyzer, ScanCode, OSV & WebApp)
-        uses: oss-review-toolkit/ort-ci-github-action@main
+      - name: 3. Ordner für Ergebnisse anlegen
+        run: mkdir -p audit-reports
+
+      - name: 4. Syft – Alle direkten & indirekten Abhängigkeiten (SBOM)
+        uses: anchore/sbom-action@v0
         with:
-          allow-dynamic-versions: 'true'
-          run: 'cache-dependencies,cache-scan-results,analyzer,scanner,advisor,evaluator,reporter,upload-results'
-          ort-cli-scan-args: '--scanners=ScanCode'
-          advisors: 'OSV'
-          report-formats: 'WebApp,CycloneDx'
-          fail-on: 'none'
+          path: './target-repo'
+          format: 'cyclonedx-json'
+          output-file: './audit-reports/1-dependencies-sbom.json'
+
+      - name: 5. Trivy – Sicherheitslücken, Lizenzen & Secrets (HTML + JSON)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: './target-repo'
+          scanners: 'vuln,license,secret'
+          format: 'template'
+          template: '@/contrib/html.tpl'
+          output: './audit-reports/2-trivy-auswertung.html'
+
+      - name: 6. ScanCode Toolkit – Tiefen-Scan aller Dateien & Code-Lizenzen
+        run: |
+          pip install --quiet scancode-toolkit
+          scancode -clipeu --processes 2 --html ./audit-reports/3-scancode-tiefenscan.html --json-pp ./audit-reports/3-scancode-daten.json ./target-repo
+
+      - name: 7. Alle Berichte zum Download bereitstellen
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Komplette-Profi-Auswertung
+          path: ./audit-reports/
