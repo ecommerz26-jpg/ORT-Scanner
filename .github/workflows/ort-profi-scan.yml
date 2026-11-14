@@ -11,7 +11,6 @@ on:
 jobs:
   universal-scan:
     runs-on: ubuntu-latest
-    # Maximale Laufzeit für große Repos mit vielen C/C++-Dateien
     timeout-minutes: 360
 
     steps:
@@ -25,17 +24,16 @@ jobs:
         uses: oss-review-toolkit/ort-ci-github-action@main
         with:
           vcs-url: '${{ steps.clean.outputs.url }}'
-          # Erlaubt Analyse auch ohne Lockfiles (für beliebige Repos)
           allow-dynamic-versions: 'true'
-          # Offizielles Regelwerk für Lizenz- & Policy-Prüfung
+          # Korrekter Link zum offiziellen ORT-Regelwerk
           ort-config-repository: 'https://github.com'
-          # Komplett-Pipeline mit Caching für schnelle Wiederholungs-Scans
+          # Komplett-Pipeline mit Caching
           run: 'cache-dependencies,cache-scan-results,analyzer,scanner,advisor,evaluator,reporter,upload-results'
-          # ScanCode durchsucht die komplette Ordnerstruktur & alle Pakete
+          # ScanCode für Ordnerstruktur & Lizenzen
           ort-cli-scan-args: '--scanners=ScanCode'
-          # OSV prüft alle direkten & indirekten Abhängigkeiten auf Sicherheitslücken
-          ort-cli-advisor-args: '--advisors=OSV'
-          # Erzeugt die interaktive Auswertung + standardisierte SBOM
+          # Korrekter Parameter für die OSV-Sicherheitsdatenbank
+          advisors: 'OSV'
+          # Ergebnisse als interaktive WebApp und SBOM ausgeben
           report-formats: 'WebApp,CycloneDx'
-          # Stellt sicher, dass der Report am Ende IMMER erstellt und hochgeladen wird
+          # Stellt sicher, dass der Report am Ende IMMER erstellt wird
           fail-on: 'none'
