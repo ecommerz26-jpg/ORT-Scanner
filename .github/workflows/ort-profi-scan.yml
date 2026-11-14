@@ -1,4 +1,4 @@
-name: ORT & ScanCode Profi-Scan
+name: Universeller Profi-Scanner (ORT + ScanCode + OSV)
 
 on:
   workflow_dispatch:
@@ -9,9 +9,10 @@ on:
         type: string
 
 jobs:
-  ort-scan:
+  universal-scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Maximale Laufzeit für große Repos mit vielen C/C++-Dateien
+    timeout-minutes: 360
 
     steps:
       - name: Link bereinigen
@@ -20,19 +21,21 @@ jobs:
           CLEAN_URL=$(echo "${{ github.event.inputs.repo_url }}" | xargs)
           echo "url=$CLEAN_URL" >> $GITHUB_OUTPUT
 
-      - name: ORT Full-Stack Analyse (Analyzer, ScanCode, OSV Advisor & Evaluator)
+      - name: Universelle Vollanalyse (Struktur, Abhängigkeiten, Lizenzen & Security)
         uses: oss-review-toolkit/ort-ci-github-action@main
         with:
           vcs-url: '${{ steps.clean.outputs.url }}'
+          # Erlaubt Analyse auch ohne Lockfiles (für beliebige Repos)
           allow-dynamic-versions: 'true'
-          # Offizielles ORT-Regelwerk für den Evaluator
+          # Offizielles Regelwerk für Lizenz- & Policy-Prüfung
           ort-config-repository: 'https://github.com'
-          # Komplette Pipeline inklusive Caching
+          # Komplett-Pipeline mit Caching für schnelle Wiederholungs-Scans
           run: 'cache-dependencies,cache-scan-results,analyzer,scanner,advisor,evaluator,reporter,upload-results'
-          # ScanCode als Scanner + OSV für Sicherheitslücken festlegen
+          # ScanCode durchsucht die komplette Ordnerstruktur & alle Pakete
           ort-cli-scan-args: '--scanners=ScanCode'
+          # OSV prüft alle direkten & indirekten Abhängigkeiten auf Sicherheitslücken
           ort-cli-advisor-args: '--advisors=OSV'
-          # Ergebnisse als interaktive HTML-WebApp und SBOM ausgeben
+          # Erzeugt die interaktive Auswertung + standardisierte SBOM
           report-formats: 'WebApp,CycloneDx'
-          # Bricht den Workflow erst bei echten Fehlern ab, nicht bei bloßen Warnungen
-          fail-on: 'severe-rule-violation,severe-issue'
+          # Stellt sicher, dass der Report am Ende IMMER erstellt und hochgeladen wird
+          fail-on: 'none'
